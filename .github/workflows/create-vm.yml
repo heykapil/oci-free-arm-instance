@@ -5,11 +5,9 @@ on:
     - cron: "*/10 * * * *"
   # Allows you to manually run this workflow from the Actions tab
   workflow_dispatch:
-
-# 2. These are the details your script needs.
 env:
   COMPARTMENT_ID: ${{ secrets.OCI_COMPARTMENT_ID }}
-  IMAGE_ID: "ocid1.image.oc1.ap-singapore-1.aaaaaaaa5a3xwkk5vaichk47fms2uzvsqeriats2uorf6kwgq3l3nwrbhipa" # <-- EDIT THIS
+  IMAGE_ID: "ocid1.image.oc1.ap-singapore-1.aaaaaaaa5a3xwkk5vaichk47fms2uzvsqeriats2uorf6kwgq3l3nwrbhipa"
   SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
   AD_NAME: "KClJ:AP-SINGAPORE-1-AD-1"
   OCI_CLI_REGION: "ap-singapore-1"
@@ -17,6 +15,7 @@ env:
   OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
   OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
   OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -33,6 +32,8 @@ jobs:
 
       - name: Setup OCI CLI and Try to Create VM
         id: create_vm
+        # This forces the job to succeed so the cache will save.
+        continue-on-error: true 
         run: |
           set -o pipefail
 
@@ -48,11 +49,9 @@ jobs:
           echo "fingerprint=${{ secrets.OCI_CLI_FINGERPRINT }}" >> ~/.oci/config
           echo "key_file=~/.oci/oci_api_key.pem" >> ~/.oci/config
           echo "region=${{ env.OCI_CLI_REGION }}" >> ~/.oci/config
-
           echo "${{ secrets.SSH_PUBLIC_KEY }}" > /home/runner/my_ssh_key.pub
 
-          # 1. Run the command, capture ALL output, and use '|| true'
-          #    to prevent the script from exiting early.
+          # Run the command, capture ALL output, and use '|| true' to prevent the script from exiting early.
           OCI_OUTPUT=$(oci compute instance launch \
             --compartment-id "$COMPARTMENT_ID" \
             --availability-domain "$AD_NAME" \
@@ -65,13 +64,12 @@ jobs:
             --display-name "coolify-vm" \
             --boot-volume-size-in-gbs 100 2>&1 || true)
 
-          # 2. Store the log as a GitHub step output
+          # Store the log as a GitHub step output
           echo "log_data<<EOF" >> $GITHUB_OUTPUT
           echo "$OCI_OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_MONTH_OUTPUT
 
-          # --- THIS IS THE NEW LOGIC ---
-          # 3. Check the log content for an error string.
+          # Check the log content for an error string.
           if echo "$OCI_OUTPUT" | grep -q -e '"ServiceError":' -e '"code":'; then
             echo "Error found in OCI output. Failing the step."
             exit 1
@@ -86,8 +84,8 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
           title: "OCI VM Status: ${{ steps.create_vm.outcome }}"
-          status: ${{ job.status }}
-          color: ${{ job.status == 'success' && '0x28a745' || '0xdc3545' }}
+          status: ${{ steps.create_vm.outcome }}
+          color: ${{ steps.create_vm.outcome == 'success' && '0x28a745' || '0xdc3545' }}
           description: |
             Attempt to create A1.Flex VM.
             **Status:** `${{ steps.create_vm.outcome }}`

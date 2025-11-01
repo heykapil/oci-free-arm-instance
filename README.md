@@ -73,6 +73,7 @@ This is the most detailed step. You need to gather **11 pieces of information** 
     * Click the name of the image (e.g., "Canonical Ubuntu 22.04"). A details panel will slide out.
     * Copy the **OCID** of the image. This is your `IMAGE_ID`.
     * You can now cancel the "Create Instance" wizard.
+    * If you still can not find the image, check this website and choose your image and copy ocid mentioned according to region. <https://docs.oracle.com/en-us/iaas/images/>
 
 ### D. Your SSH Public Key
 
